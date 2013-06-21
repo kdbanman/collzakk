@@ -68,6 +68,7 @@ public class Collzakk extends PApplet {
                 }
                 fill(occurrenceColor(current));
                 ulamPlot(current);
+                if (seed%100 == 0) println(occurrences);
                 int next = nextCollatz(current);
                 current = next;
             }
