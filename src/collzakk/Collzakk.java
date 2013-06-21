@@ -13,8 +13,10 @@ import java.util.List;
 public class Collzakk extends PApplet {
     
     int windowSize;
+    int ulamMax;
     
     HashMap<Integer, Integer> nextTree;
+    HashMap<Integer, Integer> occurrences;
     
     int seed;
     int current;
@@ -29,14 +31,17 @@ public class Collzakk extends PApplet {
     @Override
     public void setup() {
         windowSize = 900;
+        ulamMax = windowSize * windowSize;
         size(windowSize, windowSize);
         
         background(0xFF111111);
         noStroke();
         
         nextTree = new HashMap<>();
+        occurrences = new HashMap<>();
         
         nextTree.put(2, 1);
+        
         seed = 2;
         current = seed;
         
@@ -50,19 +55,23 @@ public class Collzakk extends PApplet {
     
     @Override
     public void draw() {
-        
-        if (nextTree.containsKey(current)) {
-            incrementSeed();
-            fill(magnitudeColor(seed));
-            current = seed;
-            println(seed);
-        } else{
-            ulamPlot(current);
-            int next = nextCollatz(current);
-            nextTree.put(current, next);
-            current = next;
+        if (seed <= ulamMax) {
+            if (current == 1) {
+                seed++;
+                current = seed;
+                println(seed);
+            } else{
+                if (occurrences.containsKey(current)) {
+                    occurrences.put(current, occurrences.get(current) + 1);
+                } else {
+                    occurrences.put(current, 0);
+                }
+                fill(occurrenceColor(current));
+                ulamPlot(current);
+                int next = nextCollatz(current);
+                current = next;
+            }
         }
-        
         /* collision testing
         
         int colol = 0;
@@ -93,6 +102,10 @@ public class Collzakk extends PApplet {
         }
     }
     
+    public int occurrenceColor(int x) {
+        return lerpColor(minColor, maxColor, (float) occurrences.get(x) / 450f);
+    }
+    
     public int magnitudeColor(int x) {
         float frac = 100 * sqrt((float) x / (float) max);
         println(frac);
@@ -121,42 +134,31 @@ public class Collzakk extends PApplet {
     }
     
     public void ulamPlot(int n) {
-        /*
-         113379
-         1.0275954
-         113382
-         1.0275998
-         113383
-         Exception in thread "Animation Thread" java.lang.ArithmeticException: / by zero
-         at collzakk.Collzakk.ulamPlot(Collzakk.java:127)
-         at collzakk.Collzakk.draw(Collzakk.java:60)
-         at processing.core.PApplet.handleDraw(PApplet.java:2266)
-         at processing.core.PGraphicsJava2D.requestDraw(PGraphicsJava2D.java:243)
-         at processing.core.PApplet.run(PApplet.java:2140)
-         at java.lang.Thread.run(Thread.java:722)
-         */
-        int root = ceil(sqrt(n));
-        int shell = root + (root % 2 == 0 ? 1 : 0);
-        int dist = shell * shell - n;
-        int corner = dist / (shell - 1);
         
-        int half = shell / 2;
-        dist = dist % (shell - 1);
-        int x, y;
-        if (corner == 0) {
-            x = -half;
-            y = half - dist;
-        } else if (corner == 1) {
-            x = -half + dist;
-            y = -half;
-        } else if (corner == 2) {
-            x = half;
-            y = -half + dist;
-        } else {
-            x = half - dist;
-            y = half;
+        if (n >= 1 && n <= ulamMax) {
+            int root = ceil(sqrt(n));
+            int shell = root + (root % 2 == 0 ? 1 : 0);
+            int dist = shell * shell - n;
+            int corner = dist / (shell - 1);
+
+            int half = shell / 2;
+            dist = dist % (shell - 1);
+            int x, y;
+            if (corner == 0) {
+                x = -half;
+                y = half - dist;
+            } else if (corner == 1) {
+                x = -half + dist;
+                y = -half;
+            } else if (corner == 2) {
+                x = half;
+                y = -half + dist;
+            } else {
+                x = half - dist;
+                y = half;
+            }
+
+            rect(windowSize / 2 + x, windowSize / 2 + y, 1, 1);
         }
-        
-        rect(windowSize / 2 + x, windowSize / 2 + y, 1, 1);
     }
 }
