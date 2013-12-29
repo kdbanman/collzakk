@@ -28,13 +28,16 @@ public class Collzakk extends PApplet {
     int minColor;
     int maxColor;
     
+    int nextFrame;
+    int frameNumber;
+    
     @Override
     public void setup() {
         windowSize = 900;
         ulamMax = windowSize * windowSize;
         size(windowSize, windowSize);
         
-        background(0xFF111111);
+        background(0xFF050505);
         noStroke();
         
         nextTree = new HashMap<>();
@@ -51,6 +54,9 @@ public class Collzakk extends PApplet {
         
         minColor = color(71, 12, 0);
         maxColor = color(252, 168, 151);
+        
+        nextFrame = 1;
+        frameNumber = 1;
     }
     
     @Override
@@ -59,7 +65,6 @@ public class Collzakk extends PApplet {
             if (current == 1) {
                 seed++;
                 current = seed;
-                println(seed);
             } else{
                 if (occurrences.containsKey(current)) {
                     occurrences.put(current, occurrences.get(current) + 1);
@@ -68,10 +73,18 @@ public class Collzakk extends PApplet {
                 }
                 fill(occurrenceColor(current));
                 ulamPlot(current);
-                if (seed%100 == 0) println(occurrences);
+                if (seed >= nextFrame) {
+                    saveFrame("screens/frame" + frameNumberString() + ".png");
+                    frameNumber++;
+                    nextFrame += frameNumber;
+                    println(seed);
+                }
                 int next = nextCollatz(current);
                 current = next;
             }
+        } else {
+            saveFrame("screens/frame" + frameNumberString() + ".png");
+            exit();
         }
         /* collision testing
         
@@ -161,5 +174,14 @@ public class Collzakk extends PApplet {
 
             rect(windowSize / 2 + x, windowSize / 2 + y, 1, 1);
         }
+    }
+    
+    public String frameNumberString() {
+        String ret = "";
+        for (int i = 0; i < 6 - Integer.toString(frameNumber).length(); i++) {
+            ret += "0";
+        }
+        ret += Integer.toString(frameNumber);
+        return ret;
     }
 }
