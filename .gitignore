@@ -1,1 +1,2 @@
-/dist/
+*.png
+!colortest/*.png

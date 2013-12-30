@@ -9,6 +9,7 @@ import processing.core.*;
 
 import java.util.HashMap;
 import java.util.List;
+import static processing.core.PApplet.println;
 
 public class Collzakk extends PApplet {
     
@@ -16,7 +17,7 @@ public class Collzakk extends PApplet {
     int ulamMax;
     
     HashMap<Integer, Integer> nextTree;
-    HashMap<Integer, Integer> occurrences;
+    HashMap<Integer, ArrayList<Coord>> sequences;
     
     int seed;
     int current;
@@ -28,22 +29,20 @@ public class Collzakk extends PApplet {
     int minColor;
     int maxColor;
     
-    int nextFrame;
-    int frameNumber;
+    int frame = 1;
+    int prevFrame = 1;
+    int frameNumber = 1;
+    
+    int pixelSeed[][];
     
     @Override
     public void setup() {
         windowSize = 900;
         ulamMax = windowSize * windowSize;
         size(windowSize, windowSize);
-        
+        frameRate(200);
         background(0xFF050505);
         noStroke();
-        
-        nextTree = new HashMap<>();
-        occurrences = new HashMap<>();
-        
-        nextTree.put(2, 1);
         
         seed = 2;
         current = seed;
@@ -55,37 +54,67 @@ public class Collzakk extends PApplet {
         minColor = color(71, 12, 0);
         maxColor = color(252, 168, 151);
         
-        nextFrame = 1;
-        frameNumber = 1;
+        // zero indices are ignored for convenience
+        pixelSeed = new int[windowSize + 1][windowSize + 1];
+        sequences = new HashMap<>(ulamMax);
+        
+        nextTree = new HashMap<>();
+        nextTree.put(2, 1);
+        sequences.put(2, new ArrayList<Coord>());
+        sequences.get(2).add(ulamPlot(2));
+        sequences.get(2).add(ulamPlot(1));
+        while (seed <= ulamMax) {
+            if (nextTree.containsKey(current)) {
+                seed++;
+                current = seed;
+                sequences.put(seed, new ArrayList<Coord>());
+            } else{
+                Coord currCoord = ulamPlot(current);
+                if (currCoord != null) {
+                    sequences.get(seed).add(currCoord);
+                    pixelSeed[currCoord.x][currCoord.y] = seed;
+                }
+                int next = nextCollatz(current);
+                nextTree.put(current, next);
+                current = next;
+            }
+            
+            if (seed % 10000 == 0) println((100 * seed / ulamMax) + "%");
+        }
+        // reset for draw.  global state ftw.  YYEEEEEEAAAAAAHHHHHHHHHHHHHHHH
+        seed = 2;
     }
     
     @Override
     public void draw() {
-        if (seed <= ulamMax) {
-            if (current == 1) {
-                seed++;
-                current = seed;
-            } else{
-                if (occurrences.containsKey(current)) {
-                    occurrences.put(current, occurrences.get(current) + 1);
-                } else {
-                    occurrences.put(current, 0);
+        
+        // square: seed >= frame
+        if (seed >= frame && seed <= ulamMax) {
+            background(0xFF050505);
+            for (int i = 2; i <= seed; i++) {
+                for (Coord c : sequences.get(i)) {
+                    fill(magnitudeColor(pixelSeed[c.x][c.y], seed));
+                    rect(c.x, c.y, 1, 1);
                 }
-                fill(occurrenceColor(current));
-                ulamPlot(current);
-                if (seed >= nextFrame) {
-                    saveFrame("screens/frame" + frameNumberString() + ".png");
-                    frameNumber++;
-                    nextFrame += frameNumber;
-                    println(seed);
-                }
-                int next = nextCollatz(current);
-                current = next;
+                if (i % 10000 == 0) println((100*i/seed) + "%");
             }
-        } else {
+            
+            for (int i = max(446, seed - (9 + frame - prevFrame)); i <= seed; i++) {
+                for (Coord c : sequences.get(i)) {
+                    //fill((((magnitudeColor(pixelSeed[c.x][c.y], seed) & 0x44FFFFFF) - (0x04000000 * ((seed - i))))));
+                    fill(lerpTransparency(magnitudeColor(pixelSeed[c.x][c.y], seed), 0x44, 1f - (9f + (float)frame - (float)prevFrame) / (float)seed));
+                    rect(c.x - 2, c.y - 2, 5, 5);
+                }
+            }
             saveFrame("screens/frame" + frameNumberString() + ".png");
+            frameNumber++;
+            prevFrame = frame;
+            frame += max(1, frameNumber / 50);
+        } else if (seed > ulamMax) {
+            println("final frame " + (frameNumber - 1));
             exit();
         }
+        seed++;
         /* collision testing
         
         int colol = 0;
@@ -116,18 +145,23 @@ public class Collzakk extends PApplet {
         }
     }
     
-    public int occurrenceColor(int x) {
-        return lerpColor(minColor, maxColor, (float) occurrences.get(x) / 450f);
+    /**
+     * @param col hex color
+     * @param max 0-255
+     * @param frac 0.0-1.0
+     * @return hex color
+     */
+    public int lerpTransparency(int col, int max, float frac) {
+        return col & 0x00FFFFFF | ((int) ((float) max * frac) * 0x1000000);
     }
     
-    public int magnitudeColor(int x) {
-        float frac = 100 * sqrt((float) x / (float) max);
-        println(frac);
+    public int magnitudeColor(int x, int max) {
+        float frac = ((float) x / (float) max);
         return lerpColor(minColor, maxColor, frac);
     }
     
-    public int factorColor(int x) {
-        return lerpColor(minColor, maxColor, (float) numPrimeFactors(x) / 31.0f );
+    public int factorColor(int x, int max) {
+        return lerpColor(minColor, maxColor, (float) numPrimeFactors(x) / (log(max) / log(2)) );
     }
     
     public int numPrimeFactors(int x) {
@@ -147,9 +181,9 @@ public class Collzakk extends PApplet {
         rect(windowSize/2 + (int) (r * cos(theta)), windowSize/2 + (int) (r * sin(theta)), 2, 2);
     }
     
-    public void ulamPlot(int n) {
+    public Coord ulamPlot(int n) {
         
-        if (n >= 1 && n <= ulamMax) {
+        if (n > 1 && n <= ulamMax) {
             int root = ceil(sqrt(n));
             int shell = root + (root % 2 == 0 ? 1 : 0);
             int dist = shell * shell - n;
@@ -172,7 +206,11 @@ public class Collzakk extends PApplet {
                 y = half;
             }
 
-            rect(windowSize / 2 + x, windowSize / 2 + y, 1, 1);
+            return new Coord(windowSize / 2 + x, windowSize / 2 + y);
+        } else if (n == 1) {
+            return new Coord(windowSize / 2, windowSize / 2);
+        } else {
+            return null;
         }
     }
     
@@ -183,5 +221,17 @@ public class Collzakk extends PApplet {
         }
         ret += Integer.toString(frameNumber);
         return ret;
+    }
+    
+    public class Coord {
+        public final int x, y;
+        public Coord(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+        @Override
+        public String toString() {
+            return "(" + x + "," + y + ")";
+        }
     }
 }
