@@ -13,8 +13,9 @@ import static processing.core.PApplet.println;
 
 public class Collzakk extends PApplet {
     
-    int windowSize;
-    int ulamMax;
+    int windowSize = 900;
+    int cellSize = 1;
+    int ulamMax = windowSize * windowSize / cellSize / cellSize;
     
     HashMap<Integer, Integer> nextTree;
     HashMap<Integer, ArrayList<Coord>> sequences;
@@ -37,8 +38,7 @@ public class Collzakk extends PApplet {
     
     @Override
     public void setup() {
-        windowSize = 900;
-        ulamMax = windowSize * windowSize;
+        
         size(windowSize, windowSize);
         frameRate(200);
         background(0xFF050505);
@@ -47,6 +47,7 @@ public class Collzakk extends PApplet {
         seed = 2;
         current = seed;
         
+        //radial plot constants
         max = 2147483646 / 2;
         radMult = ((float) windowSize / 2) / log(max);
         angleStep = 1.0f / log(max);
@@ -94,7 +95,7 @@ public class Collzakk extends PApplet {
             for (int i = 2; i <= seed; i++) {
                 for (Coord c : sequences.get(i)) {
                     fill(magnitudeColor(pixelSeed[c.x][c.y], seed));
-                    rect(c.x, c.y, 1, 1);
+                    rect(c.x - cellSize / 2, c.y - cellSize / 2, cellSize, cellSize);
                 }
                 if (i % 10000 == 0) println((100*i/seed) + "%");
             }
@@ -181,6 +182,7 @@ public class Collzakk extends PApplet {
         rect(windowSize/2 + (int) (r * cos(theta)), windowSize/2 + (int) (r * sin(theta)), 2, 2);
     }
     
+    //scaled ulam coordinates
     public Coord ulamPlot(int n) {
         
         if (n > 1 && n <= ulamMax) {
@@ -206,7 +208,7 @@ public class Collzakk extends PApplet {
                 y = half;
             }
 
-            return new Coord(windowSize / 2 + x, windowSize / 2 + y);
+            return new Coord(windowSize / 2 + x * cellSize, windowSize / 2 + y * cellSize);
         } else if (n == 1) {
             return new Coord(windowSize / 2, windowSize / 2);
         } else {
