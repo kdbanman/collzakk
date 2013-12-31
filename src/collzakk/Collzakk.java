@@ -14,11 +14,20 @@ import static processing.core.PApplet.println;
 public class Collzakk extends PApplet {
     
     int windowSize = 900;
-    int cellSize = 1;
+    int cellSize = 6;
     int ulamMax = windowSize * windowSize / cellSize / cellSize;
+    boolean cellByCell = true;
+    boolean eduDone = false;
     
+    // for main, sequence by sequence rendering
     HashMap<Integer, Integer> nextTree;
     HashMap<Integer, ArrayList<Coord>> sequences;
+    
+    // for educational, cell by cell rendering
+    ArrayList<Coord> sequence;
+    
+    //MORE STATE FOR EVERYONE.  MAKE THAT SHIT GLOBAL.
+    ArrayList<Integer> actualSequence;
     
     int seed;
     int current;
@@ -59,28 +68,34 @@ public class Collzakk extends PApplet {
         pixelSeed = new int[windowSize + 1][windowSize + 1];
         sequences = new HashMap<>(ulamMax);
         
+        sequence = new ArrayList<>();
+        actualSequence = new ArrayList<>();
+        
         nextTree = new HashMap<>();
         nextTree.put(2, 1);
-        sequences.put(2, new ArrayList<Coord>());
-        sequences.get(2).add(ulamPlot(2));
-        sequences.get(2).add(ulamPlot(1));
-        while (seed <= ulamMax) {
-            if (nextTree.containsKey(current)) {
-                seed++;
-                current = seed;
-                sequences.put(seed, new ArrayList<Coord>());
-            } else{
-                Coord currCoord = ulamPlot(current);
-                if (currCoord != null) {
-                    sequences.get(seed).add(currCoord);
-                    pixelSeed[currCoord.x][currCoord.y] = seed;
+        
+        if (!cellByCell) {
+            sequences.put(2, new ArrayList<Coord>());
+            sequences.get(2).add(ulamPlot(2));
+            sequences.get(2).add(ulamPlot(1));
+            while (seed <= ulamMax) {
+                if (nextTree.containsKey(current)) {
+                    seed++;
+                    current = seed;
+                    sequences.put(seed, new ArrayList<Coord>());
+                } else{
+                    Coord currCoord = ulamPlot(current);
+                    if (currCoord != null) {
+                        sequences.get(seed).add(currCoord);
+                        pixelSeed[currCoord.x][currCoord.y] = seed;
+                    }
+                    int next = nextCollatz(current);
+                    nextTree.put(current, next);
+                    current = next;
                 }
-                int next = nextCollatz(current);
-                nextTree.put(current, next);
-                current = next;
+
+                if (seed % 10000 == 0) println((100 * seed / ulamMax) + "%");
             }
-            
-            if (seed % 10000 == 0) println((100 * seed / ulamMax) + "%");
         }
         // reset for draw.  global state ftw.  YYEEEEEEAAAAAAHHHHHHHHHHHHHHHH
         seed = 2;
@@ -88,34 +103,79 @@ public class Collzakk extends PApplet {
     
     @Override
     public void draw() {
-        
-        // square: seed >= frame
-        if (seed >= frame && seed <= ulamMax) {
-            background(0xFF050505);
-            for (int i = 2; i <= seed; i++) {
-                for (Coord c : sequences.get(i)) {
-                    fill(magnitudeColor(pixelSeed[c.x][c.y], seed));
-                    rect(c.x - cellSize / 2, c.y - cellSize / 2, cellSize, cellSize);
+        if (!cellByCell) {
+            // square: seed >= frame
+            if (seed >= frame && seed <= ulamMax) {
+                background(0xFF050505);
+                for (int i = 2; i <= seed; i++) {
+                    for (Coord c : sequences.get(i)) {
+                        fill(magnitudeColor(pixelSeed[c.x][c.y], seed));
+                        rect(c.x - cellSize / 2, c.y - cellSize / 2, cellSize, cellSize);
+                    }
+                    if (i % 10000 == 0) println((100*i/seed) + "%");
                 }
-                if (i % 10000 == 0) println((100*i/seed) + "%");
-            }
-            
-            for (int i = max(446, seed - (9 + frame - prevFrame)); i <= seed; i++) {
-                for (Coord c : sequences.get(i)) {
-                    //fill((((magnitudeColor(pixelSeed[c.x][c.y], seed) & 0x44FFFFFF) - (0x04000000 * ((seed - i))))));
-                    fill(lerpTransparency(magnitudeColor(pixelSeed[c.x][c.y], seed), 0x44, 1f - (9f + (float)frame - (float)prevFrame) / (float)seed));
-                    rect(c.x - 2, c.y - 2, 5, 5);
+
+                for (int i = max(446, seed - (9 + frame - prevFrame)); i <= seed; i++) {
+                    for (Coord c : sequences.get(i)) {
+                        fill(lerpTransparency(magnitudeColor(pixelSeed[c.x][c.y], seed), 0x44, 1f - (9f + (float)frame - (float)prevFrame) / (float)seed));
+                        rect(c.x - 2, c.y - 2, 5, 5);
+                    }
                 }
+                saveFrame("screens/frame" + frameNumberString() + ".png");
+                frameNumber++;
+                prevFrame = frame;
+                frame += max(1, frameNumber / 50);
+            } else if (seed > ulamMax) {
+                println("final frame " + (frameNumber - 1));
+                exit();
             }
-            saveFrame("screens/frame" + frameNumberString() + ".png");
-            frameNumber++;
-            prevFrame = frame;
-            frame += max(1, frameNumber / 50);
-        } else if (seed > ulamMax) {
-            println("final frame " + (frameNumber - 1));
-            exit();
+            seed++;
+        } else {
+            if (seed <= ulamMax && !eduDone) {
+                if (nextTree.containsKey(current)) {
+                    seed++;
+                    current = seed;
+                } else{
+                    Coord c = ulamPlot(current);
+                    sequence.add(c);
+                    actualSequence.add(current);
+                    background(0xFF050505);
+                    for (int i = 0; i < sequence.size(); i++) {
+                        Coord curr = sequence.get(i);
+                        if (curr != null) {
+                            fill(magnitudeColor(i, seed));
+                            rect(curr.x - cellSize / 2, curr.y - cellSize / 2, cellSize, cellSize);
+                        } else {
+                            //quit education frame production as soon as bounds exceeded
+                            eduDone = true;
+                            break;
+                        }
+                    }
+                    saveFrame("screens/frame" + frameNumberString() + ".png");
+                    frameNumber++;
+                    int next = nextCollatz(current);
+                    nextTree.put(current, next);
+                    current = next;
+                }
+            } else if (cellSize > 1) {
+                cellSize--;
+                background(0xFF050505);
+                for (int i = 0; i < sequence.size(); i++) {
+                    int c = actualSequence.get(i);
+                    Coord curr = ulamPlot(c);
+                    if (curr != null) {
+                        fill(magnitudeColor(i, seed));
+                        rect(curr.x - cellSize / 2, curr.y - cellSize / 2, cellSize, cellSize);
+                    }
+                }
+                saveFrame("screens/frame" + frameNumberString() + ".png");
+                frameNumber++;
+            } else {
+                println("final frame " + (frameNumber - 1));
+                println("final seed " + (seed));
+                exit();
+            }
         }
-        seed++;
         /* collision testing
         
         int colol = 0;
